@@ -1,19 +1,23 @@
 function hashCode(s) {
   if (!s) return 0;
-  var h = 0, l = s.length, i = 0;
-  if ( l > 0 )
-    while (i < l)
+  let h = 0;
+  let l = s.length;
+  let i = 0;
+  if (l > 0) {
+    while (i < l) {
       h = (h << 5) - h + s.charCodeAt(i++) | 0;
+    }
+  }
   return h;
 }
 function patchDefaultLoader(DefaultLoader) {
   // fix issue where the map function was using `System.map[id] = source`
   // https://github.com/aurelia/loader-default/blob/1.0.0/src/index.js#L222
-  DefaultLoader.prototype.map = function(id, source) {
-    // System.map[id] = source;                 // <--- original
-    System.config({ map: { [id]: source } });   // <--- fix
+  DefaultLoader.prototype.map = function (id, source) {
+    // System.map[id] = source;               // <--- original
+    System.config({ map: { [id]: source } }); // <--- fix
   };
-}      
+}
 function buildDependencyMap() {
   return new Promise((resolve, reject) => {
     // read the package.json file
@@ -28,7 +32,7 @@ function buildDependencyMap() {
         const packageMap = JSON.parse(localStorage.getItem('packageMap'));
         const packagePackages = JSON.parse(localStorage.getItem('packagePackages'));
         const packageMeta = JSON.parse(localStorage.getItem('packageMeta'));
-        return resolve({map:packageMap, packages:packagePackages, meta:packageMeta});
+        return resolve({map: packageMap, packages: packagePackages, meta: packageMeta});
       } 
       // Store the has of the package.json fiile
       localStorage.setItem('packageHash', hashCode(JSON.stringify(data.dependencies)));
@@ -97,13 +101,13 @@ function buildDependencyMap() {
   });
 }
 //
-// The following functions are used for managing the Cache while 
+// The following functions are used for managing the Cache while
 // developing the app in dev mode.
 //
 function postMessageSetup() {
-  window.addEventListener("message", receiveMessage, false);    
+  window.addEventListener('message', receiveMessage, false);
 }
-function receiveMessage(event) {
+async function receiveMessage(event) {
   // console.log('messaged received: ', event);
   // Do we trust the sender of this message?
   const origins = [
@@ -113,25 +117,33 @@ function receiveMessage(event) {
   if (!origins.includes(event.origin)) return;
 
   const messages = JSON.parse(event.data);
-  messages.forEach(msg => {
+  if (messages.length === 0) return;
+
+  let project = '';
+  for (const msg of messages) {
     const {operation, repo, key, value, origin} = msg;
+    project = repo;
     // Only process messages for the correct repository.
     if (location.href.includes(repo)) {
       // console.debug('repo', repo, 'location.href', location.href);
-      switch(operation) {
-        case 'set': 
-          this.putCache(key, value, origin, repo);
+      switch (operation) {
+        case 'set':
+          await this.putCache(key, value, origin, repo);
           break;
       }
     }
-  });
+  }
+  //
+  // Until we have a working hot module reload capability in the
+  // browser, we always redirect to the root of the site.
+  //
+  setTimeout(() => {
+    location.href = `${origin}/${project}/`;
+    // location.reload();
+  }, 50);
 }
 function deleteCache(key, origin, repo) {
-  const RUNTIME = 'runtime';
-  let CACHE_NAME = RUNTIME;
-  if (repo) {
-    CACHE_NAME = repo;
-  }  
+  const CACHE_NAME = 'runtime';
   return caches.open(CACHE_NAME).then(cache => {
     const req = new Request(`${origin}/${key}`);
     console.log('removing old cache for ', req);
@@ -141,12 +153,7 @@ function deleteCache(key, origin, repo) {
   });
 }
 function putCache(key, value, origin, repo) {
-  // Save to the CACHE API
-  const RUNTIME = 'runtime';
-  let CACHE_NAME = RUNTIME;
-  if (repo) {
-    CACHE_NAME = repo;
-  }
+  const CACHE_NAME = 'runtime';
   return caches.open(CACHE_NAME).then(cache => {
     const req = new Request(`${origin}/${key}`);
     const res = new Response(value);
@@ -155,18 +162,9 @@ function putCache(key, value, origin, repo) {
     return cache.put(req, res).then(() => {
       // Completed caching.
       console.log('putCache - completed!');
-      //
-      // Until we have a working hot module reload capability in the
-      // browser, we always redirect to the root of the site.
-      //
-      setTimeout(() => {
-        location.href = `${origin}/${repo}/`;
-        // location.reload();
-      }, 50);
     });
-  }); 
+  });
 }
-
 
 // Execute the script
 postMessageSetup();
