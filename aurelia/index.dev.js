@@ -57,15 +57,14 @@ function buildDependencyMap() {
           let {browser, main, name, version, jspm} = pkg.data;
           if (jspm && jspm.directories) {
             const jspmMain = jspm.main;
-            const dist = jspm.directories.dist;
-            // main = `${dist}/${jspmMain}`;
+            const dist = jspm.directories.dist || jspm.directories.lib;
             main = `${dist}`;
-            packages[jspmMain] = {
+            packages[name] = {
               main: `${jspmMain}.js`,
               defaultExtension: 'js'
             };
             if (jspm.dependencies) {
-              meta[jspmMain] = {
+              meta[name] = {
                 deps: Object.keys(jspm.dependencies)
               };
             }
@@ -92,6 +91,11 @@ function buildDependencyMap() {
           const valueUri = `npm:${name}@${version}/${main}`;
           map[name] = valueUri;
         }
+        // Also, handle fecDependencies
+        for (const [key2, value2] of Object.entries(data.fecDependencies)) {
+          console.log(`${key2} ${value2}`);
+          map[key2] = value2;
+        }
         localStorage.setItem('packageMap', JSON.stringify(map));
         localStorage.setItem('packagePackages', JSON.stringify(packages));
         localStorage.setItem('packageMeta', JSON.stringify(meta));
@@ -112,7 +116,10 @@ async function receiveMessage(event) {
   // Do we trust the sender of this message?
   const origins = [
     'http://localhost:9000',
-    'https://frontendcreator.com'
+    'http://frontendcreator.com',
+    'http://www.frontendcreator.com',
+    'https://frontendcreator.com',
+    'https://www.frontendcreator.com'
   ];
   if (!origins.includes(event.origin)) return;
 
@@ -157,11 +164,11 @@ function putCache(key, value, origin, repo) {
   return caches.open(CACHE_NAME).then(cache => {
     const req = new Request(`${origin}/${key}`);
     const res = new Response(value);
-    console.log(`caching (${key}): ${value}`);
+    // console.log(`caching (${key}): ${value}`);
     // Put a copy of the response in the runtime cache.
     return cache.put(req, res).then(() => {
       // Completed caching.
-      console.log('putCache - completed!');
+      // console.log('putCache - completed!');
     });
   });
 }
