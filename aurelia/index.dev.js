@@ -41,7 +41,7 @@ function buildDependencyMap() {
       for (const [key, value] of Object.entries(data.dependencies)) {
         console.log(`${key} ${value}`);
         // Load package.json e.g. https://unpkg.com/lodash@4.17.4/package.json
-        // Load manifest /?json e.g. https://unpkg.com/lodash@4.17.4/?json
+        // Load manifest /?meta e.g. https://unpkg.com/lodash@4.17.4/?meta
         const pkgUri = `https://unpkg.com/${key}@${value}/package.json`;
         uris.push(axios.get(pkgUri));
         const jsonUri = `https://unpkg.com/${key}@${value}/?meta`;
